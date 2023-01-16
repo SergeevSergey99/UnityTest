@@ -22,7 +22,7 @@ public class Ratator : MonoBehaviour
     void Update()
     {
         //GetComponent<Transform>().Rotate(Vector3.up);
-        GetComponent<Transform>().Rotate(angle * Speed, Space.World);
+        GetComponent<Transform>().Rotate(angle * Speed * Time.deltaTime, Space.World);
 
         
         if (Input.GetButtonDown("Space"))
