@@ -17,7 +17,6 @@ public class Node : MonoBehaviour
     }
     private void OnMouseDown()
     {
-        Debug.Log(x + " " + y);
         mg.CalcBFS(this);
     }
 }
