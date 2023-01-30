@@ -8,6 +8,8 @@ public class MazeGenerator : MonoBehaviour
     public Vector2 startPos = Vector2.one;
     public Material blue, green;
     PlayerController player;
+    public GameObject botPrefab;
+    public Vector2 botStartPos;
     int[,] maze = new int[10, 10] 
     { 
         {1,1,1,1,1,1,1,1,1,1}, 
@@ -23,39 +25,48 @@ public class MazeGenerator : MonoBehaviour
     };
     Node[,] nodeMaze = new Node[10, 10]; 
     // Start is called before the first frame update
-    void Start()
+    public void Start()
     {
         for (int x = 0; x < 10; x++)
         {
             for (int y = 0; y < 10; y++)
             {
-                if (maze[x, y] == 0)
+                if (nodeMaze[x, y] == null)
                 {
-                    // Floor
-                    GameObject go = Instantiate(FloorPrefab, transform);
-                    go.transform.position = new Vector3(
-                        x, go.transform.position.y, y);
-                    go.GetComponent<Node>().init(this, x, y, maze[x, y]);
-                    nodeMaze[x, y] = go.GetComponent<Node>();
-                }
-                else if(maze[x, y] == 1)
-                {
-                    // Wall
-                    GameObject go = Instantiate(WallPrefab, transform);
-                    go.transform.position = new Vector3(
-                        x, go.transform.position.y, y);
-                    go.GetComponent<Node>().init(this, x, y, maze[x, y]);
-                    nodeMaze[x, y] = go.GetComponent<Node>();
+                    if (maze[x, y] == 0)
+                    {
+                        // Floor
+                        GameObject go = Instantiate(FloorPrefab, transform);
+                        go.transform.position = new Vector3(
+                            x, go.transform.position.y, y);
+                        go.GetComponent<Node>().init(this, x, y, maze[x, y]);
+                        nodeMaze[x, y] = go.GetComponent<Node>();
+                    }
+                    else if (maze[x, y] == 1)
+                    {
+                        // Wall
+                        GameObject go = Instantiate(WallPrefab, transform);
+                        go.transform.position = new Vector3(
+                            x, go.transform.position.y, y);
+                        go.GetComponent<Node>().init(this, x, y, maze[x, y]);
+                        nodeMaze[x, y] = go.GetComponent<Node>();
+                    }
                 }
             }
         }
+        if (player == null)
+        {
+            GameObject playerGO = Instantiate(PlayerPrefab, transform);
+            playerGO.transform.position = new Vector3(
+                startPos.x, playerGO.transform.position.y, startPos.y);
+            playerGO.GetComponent<PlayerController>().initMaze(maze);
+            player = playerGO.GetComponent<PlayerController>();
+        }
 
-        GameObject playerGO = Instantiate(PlayerPrefab,transform);
-        playerGO.transform.position = new Vector3(
-            startPos.x, playerGO.transform.position.y, startPos.y);
-        playerGO.GetComponent<PlayerController>().initMaze(maze);
-        player = playerGO.GetComponent<PlayerController>();
-
+        GameObject bot = Instantiate(botPrefab, transform);
+        bot.transform.position = new Vector3(
+            botStartPos.x, bot.transform.position.y, botStartPos.y);
+        
     }
 
     public void CalcBFS(Node node)
@@ -161,6 +172,115 @@ public class MazeGenerator : MonoBehaviour
                 }
 
             }
+        }
+    }
+    public Vector3 FindNextPosToPlayer(BotController bot)
+    {
+        for (int x = 0; x < 10; x++)
+            for (int y = 0; y < 10; y++)
+                if(maze[x,y] == 0) 
+                    nodeMaze[x, y].GetComponent<MeshRenderer>().material = blue;
+
+        int endX = (int) (player.transform.position.x + 0.2);
+        int endY = (int) (player.transform.position.z + 0.2);
+        int startX = (int) bot.transform.position.x;
+        int startY = (int) bot.transform.position.z;
+
+        if (endX == startX && endY == startY) return bot.transform.position;
+
+        int[,] pathPoints = new int[10,10];
+        for(int x = 0; x < 10; x++)
+            for (int y = 0; y < 10; y++)
+                pathPoints[x, y] = int.MinValue;
+
+        pathPoints[startX, startY] = 0;
+
+        List<Node> queue = new List<Node>();
+        queue.Add(nodeMaze[startX, startY]);
+        List<Node> nextQueue = new List<Node>();
+        int stepLevel = 1;
+
+
+        while (queue.Count > 0)
+        {
+            var curr = queue[0];
+            queue.RemoveAt(0);
+
+            if (curr.x == endX && curr.y == endY)
+                break;
+
+            if (curr.x - 1 >= 0 && maze[curr.x - 1, curr.y] == 0
+                && pathPoints[curr.x - 1, curr.y] == int.MinValue)
+            {
+                nextQueue.Add(nodeMaze[curr.x - 1, curr.y]);
+                pathPoints[curr.x - 1, curr.y] = stepLevel;
+            }
+            if (curr.x + 1 < 10 && maze[curr.x + 1, curr.y] == 0
+                && pathPoints[curr.x + 1, curr.y] == int.MinValue)
+            {
+                nextQueue.Add(nodeMaze[curr.x + 1, curr.y]);
+                pathPoints[curr.x + 1, curr.y] = stepLevel;
+            }
+            if (curr.y - 1 >= 0 && maze[curr.x, curr.y - 1] == 0
+                && pathPoints[curr.x, curr.y - 1] == int.MinValue)
+            {
+                nextQueue.Add(nodeMaze[curr.x, curr.y - 1]);
+                pathPoints[curr.x, curr.y - 1] = stepLevel;
+            }
+            if (curr.y + 1 < 10 && maze[curr.x, curr.y + 1] == 0
+                && pathPoints[curr.x, curr.y + 1] == int.MinValue)
+            {
+                nextQueue.Add(nodeMaze[curr.x, curr.y + 1]);
+                pathPoints[curr.x, curr.y + 1] = stepLevel;
+            }
+
+
+            if(queue.Count == 0)
+            {
+                stepLevel++;
+                queue.AddRange(nextQueue);
+                nextQueue.Clear();
+            }
+        }
+
+        if(pathPoints[endX, endY] == int.MinValue)
+        {
+            return bot.transform.position;
+        }
+        else
+        {
+            var curr = nodeMaze[endX, endY];
+            while(pathPoints[curr.x, curr.y] != 1)
+            {
+                if (curr.x - 1 >= 0
+                    && pathPoints[curr.x, curr.y] - 1 == pathPoints[curr.x - 1, curr.y])
+                {
+                    curr = nodeMaze[curr.x - 1, curr.y];
+                    continue;
+                }
+                if (curr.x + 1 < 10
+                    && pathPoints[curr.x, curr.y] - 1 == pathPoints[curr.x + 1, curr.y])
+                {
+                    curr = nodeMaze[curr.x + 1, curr.y];
+                    continue;
+                }
+                if (curr.y - 1 >= 0
+                    && pathPoints[curr.x, curr.y] - 1 == pathPoints[curr.x, curr.y - 1])
+                {
+                    curr = nodeMaze[curr.x, curr.y - 1];
+                    continue;
+                }
+                if (curr.y + 1 < 10
+                    && pathPoints[curr.x, curr.y] - 1 == pathPoints[curr.x, curr.y + 1])
+                {
+                    curr = nodeMaze[curr.x, curr.y + 1];
+                    continue;
+                }
+
+            }
+
+            return new Vector3(curr.x, 0, curr.y);
+            
         }
     }
 

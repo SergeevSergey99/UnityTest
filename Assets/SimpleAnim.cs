@@ -29,7 +29,7 @@ public class SimpleAnim : MonoBehaviour
 
         while(t <= 1)
         {
-            yield return null;
+            yield return null; // new WaitForSeconds(0.5f);
             transform.position = Vector3.Lerp(pos, startPos, t);
             t += 0.01f;
         }
